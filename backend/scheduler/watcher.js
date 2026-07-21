@@ -1,8 +1,8 @@
 const cron = require('node-cron');
 const { fetchEmails, fetchEmailsSinceHistory, getCurrentHistoryId } = require('../email/gmailClient');
-const { analyzeEmail, generateRelanceMessage } = require('../ai/analyzer');
+const { analyzeEmail, generateRelanceMessage, extractEmail, isNoReplyAddress } = require('../ai/analyzer');
 const { 
-  insertCandidature, logEmail, getCandidaturesNeedingRelance, 
+  insertCandidature, findDuplicate, logEmail, getCandidaturesNeedingRelance, 
   updateStatut, updateRelanceMessage, getUserById 
 } = require('../db/queries');
 const db = require('../db/database');
@@ -53,22 +53,43 @@ async function processEmail(user, email) {
     from_address: email.from,
     received_at: email.date?.toISOString() || new Date().toISOString(),
     analyzed: 1,
-    is_candidature: analysis.est_accuse_reception && analysis.confiance >= 0.5 ? 1 : 0,
+    is_candidature: analysis.est_accuse_reception && analysis.confiance >= 0.75 ? 1 : 0,
     candidature_id: null,
   };
 
-  if (analysis.est_accuse_reception && analysis.confiance >= 0.5) {
+  if (analysis.est_accuse_reception && analysis.confiance >= 0.75) {
     const entreprise = analysis.entreprise || extractDomain(email.from);
     const poste = analysis.poste || 'Poste non précisé';
+    const dateAccuse = email.date?.toISOString() || new Date().toISOString();
+
+    // Check for near-duplicate (same company, same post, same day)
+    const duplicate = findDuplicate.get({
+      user_id: user.id,
+      entreprise,
+      poste,
+      date_accuse_reception: dateAccuse
+    });
+
+    if (duplicate) {
+      console.log(`⚠️ Near-duplicate candidature skipped: ${entreprise} - ${poste} on ${dateAccuse}`);
+      logEntry.is_candidature = 0;
+      logEmail.run(logEntry);
+      return;
+    }
     
+    // Check reply-to address
+    const rawEmail = extractEmail(email.from);
+    const isNoReply = isNoReplyAddress(rawEmail);
+    const replyToEmail = isNoReply ? null : rawEmail;
+
     // Generate initial relance message
     let relanceMsg = null;
     try {
       const relance = await generateRelanceMessage({
         poste, entreprise,
         type_contrat: analysis.type_contrat || 'alternance',
-        date_accuse_reception: email.date?.toISOString() || new Date().toISOString(),
-      }, user.email);
+        date_accuse_reception: dateAccuse,
+      }, user.email, user.name);
       relanceMsg = JSON.stringify(relance);
     } catch (e) {
       console.error('Could not pre-generate relance:', e.message);
@@ -80,7 +101,8 @@ async function processEmail(user, email) {
       poste,
       type_contrat: analysis.type_contrat || 'alternance',
       email_expediteur: email.from,
-      date_accuse_reception: email.date?.toISOString() || new Date().toISOString(),
+      reply_to_email: replyToEmail,
+      date_accuse_reception: dateAccuse,
       email_message_id: email.id,
       email_subject: email.subject,
       email_body_excerpt: email.bodyText?.substring(0, 500) || email.snippet,
@@ -95,7 +117,7 @@ async function processEmail(user, email) {
       broadcastToUser(user.id, 'nouvelle_candidature', {
         id: result.lastInsertRowid,
         entreprise, poste,
-        date_accuse_reception: email.date?.toISOString(),
+        date_accuse_reception: dateAccuse,
         email_subject: email.subject,
       });
       

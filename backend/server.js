@@ -6,11 +6,11 @@ const path = require('path');
 const fs = require('fs');
 const passport = require('./auth/googleAuth');
 const { sendEmail } = require('./email/gmailClient');
-const { generateRelanceMessage } = require('./ai/analyzer');
+const { generateRelanceMessage, isNoReplyAddress, extractEmail } = require('./ai/analyzer');
 const { 
   getCandidaturesByUser, getCandidaturesByStatut, getCandidatureById,
   updateStatut, markRelanceEnvoyee, markReponseRecue, updateRelanceMessage,
-  updateNotes, getStats, getTimeline, getUserById
+  updateReplyTo, updateNotes, deleteCandidature, getStats, getTimeline, getUserById
 } = require('./db/queries');
 const { startWatcher, stopWatcher, startDailyCron, addSSEClient, removeSSEClient } = require('./scheduler/watcher');
 
@@ -163,6 +163,20 @@ app.post('/api/candidatures/:id/relance/send', requireAuth, async (req, res) => 
   const cand = getCandidatureById.get(parseInt(req.params.id), req.user.id);
   if (!cand) return res.status(404).json({ error: 'Candidature non trouvée' });
   
+  const toEmail = req.body.reply_to_email || cand.reply_to_email;
+  
+  if (!toEmail) {
+    return res.status(400).json({ 
+      error: "Impossible d'envoyer la relance : l'adresse email de destination est vide ou est un no-reply. Veuillez renseigner une adresse email de contact valide." 
+    });
+  }
+
+  if (isNoReplyAddress(toEmail)) {
+    return res.status(400).json({ 
+      error: `L'adresse renseignée (${toEmail}) est une adresse 'no-reply'. Veuillez la modifier pour une adresse email valide afin que votre relance arrive au bon destinataire.` 
+    });
+  }
+  
   let relanceData;
   
   // Use custom message if provided, else use stored one
@@ -172,12 +186,12 @@ app.post('/api/candidatures/:id/relance/send', requireAuth, async (req, res) => 
     relanceData = JSON.parse(cand.relance_message);
   } else {
     // Generate on the fly
-    relanceData = await generateRelanceMessage(cand, req.user.email);
+    relanceData = await generateRelanceMessage(cand, req.user.email, req.user.name);
   }
 
   try {
     await sendEmail(req.user, {
-      to: cand.email_expediteur,
+      to: toEmail,
       subject: relanceData.sujet,
       body: relanceData.corps,
     });
@@ -196,7 +210,7 @@ app.post('/api/candidatures/:id/relance/regenerate', requireAuth, async (req, re
   if (!cand) return res.status(404).json({ error: 'Candidature non trouvée' });
   
   try {
-    const relance = await generateRelanceMessage(cand, req.user.email);
+    const relance = await generateRelanceMessage(cand, req.user.email, req.user.name);
     updateRelanceMessage.run(JSON.stringify(relance), cand.id, req.user.id);
     res.json({ success: true, relance });
   } catch (err) {
@@ -208,6 +222,20 @@ app.post('/api/candidatures/:id/relance/regenerate', requireAuth, async (req, re
 app.patch('/api/candidatures/:id/relance', requireAuth, (req, res) => {
   const { sujet, corps } = req.body;
   updateRelanceMessage.run(JSON.stringify({ sujet, corps }), parseInt(req.params.id), req.user.id);
+  res.json({ success: true });
+});
+
+// PATCH update reply_to_email manually
+app.patch('/api/candidatures/:id/reply-to', requireAuth, (req, res) => {
+  const { reply_to_email } = req.body;
+  const cleanedEmail = extractEmail(reply_to_email);
+  updateReplyTo.run(cleanedEmail || null, parseInt(req.params.id), req.user.id);
+  res.json({ success: true });
+});
+
+// DELETE candidature
+app.delete('/api/candidatures/:id', requireAuth, (req, res) => {
+  deleteCandidature.run(parseInt(req.params.id), req.user.id);
   res.json({ success: true });
 });
 

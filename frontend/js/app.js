@@ -219,24 +219,38 @@ function renderCandidatureCard(c, showActions = true) {
 
   let actionsHTML = '';
   if (showActions) {
+    let specificButtons = '';
     if (c.statut === 'relance_a_valider') {
-      actionsHTML = `
+      specificButtons = `
         <button class="btn-primary btn-send-relance" data-id="${c.id}" onclick="event.stopPropagation(); sendRelance(${c.id})">
           📤 Envoyer la relance
         </button>
         <button class="btn-ghost" onclick="event.stopPropagation(); openDetail(${c.id})">✏️ Voir / Modifier</button>
       `;
     } else if (c.statut === 'relance_envoyee') {
-      actionsHTML = `
+      specificButtons = `
         <button class="btn-success" onclick="event.stopPropagation(); markRepondue(${c.id})">✅ Réponse reçue</button>
         <button class="btn-ghost" onclick="event.stopPropagation(); openDetail(${c.id})">Voir détail</button>
       `;
     } else if (c.statut === 'en_attente') {
-      actionsHTML = `
+      specificButtons = `
         <button class="btn-success" onclick="event.stopPropagation(); markRepondue(${c.id})">✅ Réponse reçue</button>
         <button class="btn-ghost" onclick="event.stopPropagation(); openDetail(${c.id})">Détail</button>
       `;
+    } else if (c.statut === 'repondu') {
+      specificButtons = `
+        <button class="btn-ghost" onclick="event.stopPropagation(); openDetail(${c.id})">Détail</button>
+      `;
     }
+    
+    actionsHTML = `
+      ${specificButtons}
+      <button class="btn-ghost" onclick="event.stopPropagation(); deleteCandidatureDirect(${c.id})" 
+        style="background: rgba(239, 68, 68, 0.1); color: #fca5a5; border-color: rgba(239, 68, 68, 0.2);" 
+        title="Supprimer définitivement la candidature">
+        🗑️ Supprimer
+      </button>
+    `;
   }
 
   let progressHTML = '';
@@ -400,6 +414,7 @@ async function markRepondue(id) {
 }
 
 // ─── DETAIL MODAL ─────────────────────────────────────────────
+
 async function openDetail(id) {
   const data = await api(`/api/candidatures/${id}`);
   if (!data?.success) return;
@@ -421,8 +436,23 @@ async function openDetail(id) {
         <div class="modal-field"><span class="modal-label">Poste</span><span class="modal-value">${escHtml(c.poste)}</span></div>
         <div class="modal-field"><span class="modal-label">Type de contrat</span><span class="modal-value">${c.type_contrat || '—'}</span></div>
         <div class="modal-field"><span class="modal-label">CV mentionné</span><span class="modal-value">${c.cv_mentionne ? '✅ Oui' : '❌ Non'}</span></div>
-        <div class="modal-field"><span class="modal-label">Expéditeur</span><span class="modal-value">${escHtml(c.email_expediteur || '—')}</span></div>
+        <div class="modal-field"><span class="modal-label">Expéditeur d'origine</span><span class="modal-value">${escHtml(c.email_expediteur || '—')}</span></div>
         <div class="modal-field"><span class="modal-label">Jours depuis accusé</span><span class="modal-value">J+${daysSince}</span></div>
+      </div>
+      
+      <!-- Destinataire de relance modifiable -->
+      <div class="modal-field" style="margin-top: 16px;">
+        <span class="modal-label">Email destinataire pour la relance</span>
+        <div style="display: flex; gap: 8px; margin-top: 4px; align-items: center;">
+          <input id="replyToEmailInput" type="email" class="textarea-edit" style="flex: 1; padding: 10px 12px; border-radius:10px; font-size:13px; height:auto; margin: 0;"
+            value="${escHtml(c.reply_to_email || '')}" placeholder="Entrez un email valide (ex: rh@entreprise.com)">
+          <button class="btn-primary" onclick="saveReplyTo(${c.id})" style="padding: 10px 14px; height: 38px; display: flex; align-items: center; justify-content: center; box-shadow: none;">Enregistrer</button>
+        </div>
+        ${!c.reply_to_email ? `
+          <div style="color: var(--color-warning); font-size: 12px; margin-top: 6px; display: flex; align-items: center; gap: 6px;">
+            ⚠️ <span>L'adresse d'origine est un no-reply. Veuillez renseigner un email de contact valide avant de relancer.</span>
+          </div>
+        ` : ''}
       </div>
     </div>
 
@@ -480,18 +510,64 @@ async function openDetail(id) {
       ${c.statut === 'relance_a_valider' ? `<button class="btn-primary" onclick="sendRelanceFromModal(${c.id})">📤 Envoyer la relance</button>` : ''}
       ${(c.statut !== 'repondu') ? `<button class="btn-success" onclick="markRepondue(${c.id}); closeModal();">✅ L'entreprise a répondu</button>` : ''}
       <button class="btn-ghost" onclick="saveNotes(${c.id})">💾 Sauvegarder notes</button>
+      <button class="btn-ghost" onclick="deleteCandidatureFromModal(${c.id})" style="background: rgba(239, 68, 68, 0.1); color: #fca5a5; border-color: rgba(239, 68, 68, 0.2); margin-left: auto;">❌ Supprimer la candidature</button>
     </div>
   `;
 
   $('detailModal').classList.remove('hidden');
 }
 
+async function saveReplyTo(id) {
+  const email = $('replyToEmailInput')?.value;
+  if (email && !email.includes('@')) {
+    showToast('Veuillez entrer une adresse email valide.', 'warning');
+    return;
+  }
+  const data = await api(`/api/candidatures/${id}/reply-to`, {
+    method: 'PATCH',
+    body: JSON.stringify({ reply_to_email: email }),
+  });
+  if (data?.success) {
+    showToast('✅ Email de destination mis à jour !', 'success');
+    loadPage(state.currentPage);
+  } else {
+    showToast('Erreur lors de la sauvegarde de l\'email', 'error');
+  }
+}
+
+async function deleteCandidatureFromModal(id) {
+  if (!confirm("Voulez-vous vraiment supprimer cette candidature ? Cette action est irréversible et supprimera tout l'historique lié.")) return;
+  const data = await api(`/api/candidatures/${id}`, { method: 'DELETE' });
+  if (data?.success) {
+    showToast('🗑️ Candidature supprimée avec succès', 'success');
+    closeModal();
+    loadPage(state.currentPage);
+    loadStats();
+  } else {
+    showToast('Erreur lors de la suppression', 'error');
+  }
+}
+
+async function deleteCandidatureDirect(id) {
+  if (!confirm("Voulez-vous vraiment supprimer cette candidature ? Cette action est irréversible.")) return;
+  const data = await api(`/api/candidatures/${id}`, { method: 'DELETE' });
+  if (data?.success) {
+    showToast('🗑️ Candidature supprimée avec succès', 'success');
+    loadPage(state.currentPage);
+    loadStats();
+  } else {
+    showToast('Erreur lors de la suppression', 'error');
+  }
+}
+
 async function sendRelanceFromModal(id) {
   const sujet = $('relanceSujet')?.value;
   const corps = $('relanceCorps')?.value;
+  const reply_to_email = $('replyToEmailInput')?.value;
+  
   const data = await api(`/api/candidatures/${id}/relance/send`, {
     method: 'POST',
-    body: JSON.stringify({ sujet, corps }),
+    body: JSON.stringify({ sujet, corps, reply_to_email }),
   });
   if (data?.success) {
     showToast('✉️ Relance envoyée !', 'success');
@@ -620,3 +696,8 @@ window.saveRelanceEdit = saveRelanceEdit;
 window.saveNotes = saveNotes;
 window.closeModal = closeModal;
 window.navigateTo = navigateTo;
+window.saveReplyTo = saveReplyTo;
+window.deleteCandidatureFromModal = deleteCandidatureFromModal;
+window.deleteCandidatureDirect = deleteCandidatureDirect;
+
+

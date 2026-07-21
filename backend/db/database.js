@@ -38,6 +38,7 @@ db.exec(`
     poste TEXT NOT NULL,
     type_contrat TEXT DEFAULT 'alternance',
     email_expediteur TEXT,
+    reply_to_email TEXT,
     date_candidature TEXT,
     date_accuse_reception TEXT NOT NULL,
     email_message_id TEXT UNIQUE,

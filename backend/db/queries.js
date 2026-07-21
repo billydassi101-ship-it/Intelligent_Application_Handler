@@ -1,17 +1,22 @@
 const db = require('./database');
 
+// Migration: add reply_to_email column if missing (for existing DBs)
+try {
+  db.exec(`ALTER TABLE candidatures ADD COLUMN reply_to_email TEXT`);
+} catch (e) { /* column already exists */ }
+
 // ─── USERS ────────────────────────────────────────────────────────────────────
 
 const upsertUser = db.prepare(`
   INSERT INTO users (id, google_id, email, name, avatar, access_token, refresh_token, last_login)
-  VALUES (@id, @google_id, @email, @name, @avatar, @access_token, @refresh_token, CURRENT_TIMESTAMP)
+  VALUES ($id, $google_id, $email, $name, $avatar, $access_token, $refresh_token, datetime('now'))
   ON CONFLICT(google_id) DO UPDATE SET
     email = excluded.email,
     name = excluded.name,
     avatar = excluded.avatar,
     access_token = excluded.access_token,
     refresh_token = excluded.refresh_token,
-    last_login = CURRENT_TIMESTAMP
+    last_login = datetime('now')
 `);
 
 const getUserById = db.prepare('SELECT * FROM users WHERE id = ?');
@@ -25,11 +30,26 @@ const updateUserTokens = db.prepare(`
 
 const insertCandidature = db.prepare(`
   INSERT OR IGNORE INTO candidatures 
-  (user_id, entreprise, poste, type_contrat, email_expediteur, date_accuse_reception,
-   email_message_id, email_subject, email_body_excerpt, cv_mentionne, relance_message)
+  (user_id, entreprise, poste, type_contrat, email_expediteur, reply_to_email,
+   date_accuse_reception, email_message_id, email_subject, email_body_excerpt,
+   cv_mentionne, relance_message)
   VALUES 
-  (@user_id, @entreprise, @poste, @type_contrat, @email_expediteur, @date_accuse_reception,
-   @email_message_id, @email_subject, @email_body_excerpt, @cv_mentionne, @relance_message)
+  ($user_id, $entreprise, $poste, $type_contrat, $email_expediteur, $reply_to_email,
+   $date_accuse_reception, $email_message_id, $email_subject, $email_body_excerpt,
+   $cv_mentionne, $relance_message)
+`);
+
+// Check for near-duplicate: same user + same company + same post + same day
+const findDuplicate = db.prepare(`
+  SELECT id FROM candidatures 
+  WHERE user_id = $user_id 
+    AND LOWER(entreprise) = LOWER($entreprise)
+    AND (
+      LOWER(poste) = LOWER($poste)
+      OR (poste = 'Poste non précisé' AND $poste = 'Poste non précisé')
+    )
+    AND date(date_accuse_reception) = date($date_accuse_reception)
+  LIMIT 1
 `);
 
 const getCandidaturesByUser = db.prepare(`
@@ -45,27 +65,35 @@ const getCandidatureById = db.prepare(`
 `);
 
 const updateStatut = db.prepare(`
-  UPDATE candidatures SET statut = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?
+  UPDATE candidatures SET statut = ?, updated_at = datetime('now') WHERE id = ? AND user_id = ?
 `);
 
 const markRelanceEnvoyee = db.prepare(`
   UPDATE candidatures 
-  SET statut = 'relance_envoyee', relance_envoyee_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+  SET statut = 'relance_envoyee', relance_envoyee_at = datetime('now'), updated_at = datetime('now')
   WHERE id = ? AND user_id = ?
 `);
 
 const markReponseRecue = db.prepare(`
   UPDATE candidatures 
-  SET statut = 'repondu', reponse_recue_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+  SET statut = 'repondu', reponse_recue_at = datetime('now'), updated_at = datetime('now')
   WHERE id = ? AND user_id = ?
 `);
 
 const updateRelanceMessage = db.prepare(`
-  UPDATE candidatures SET relance_message = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?
+  UPDATE candidatures SET relance_message = ?, updated_at = datetime('now') WHERE id = ? AND user_id = ?
+`);
+
+const updateReplyTo = db.prepare(`
+  UPDATE candidatures SET reply_to_email = ?, updated_at = datetime('now') WHERE id = ? AND user_id = ?
 `);
 
 const updateNotes = db.prepare(`
-  UPDATE candidatures SET notes = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ? AND user_id = ?
+  UPDATE candidatures SET notes = ?, updated_at = datetime('now') WHERE id = ? AND user_id = ?
+`);
+
+const deleteCandidature = db.prepare(`
+  DELETE FROM candidatures WHERE id = ? AND user_id = ?
 `);
 
 // Check candidatures that need follow-up (J+21 and still en_attente)
@@ -82,7 +110,7 @@ const getStats = (userId) => {
   const relance_a_valider = db.prepare("SELECT COUNT(*) as count FROM candidatures WHERE user_id = ? AND statut = 'relance_a_valider'").get(userId);
   const relance_envoyee = db.prepare("SELECT COUNT(*) as count FROM candidatures WHERE user_id = ? AND statut = 'relance_envoyee'").get(userId);
   const repondu = db.prepare("SELECT COUNT(*) as count FROM candidatures WHERE user_id = ? AND statut = 'repondu'").get(userId);
-  
+
   return {
     total: total.count,
     en_attente: en_attente.count,
@@ -109,13 +137,13 @@ const getTimeline = db.prepare(`
 
 const logEmail = db.prepare(`
   INSERT OR IGNORE INTO email_log (user_id, email_message_id, subject, from_address, received_at, analyzed, is_candidature, candidature_id)
-  VALUES (@user_id, @email_message_id, @subject, @from_address, @received_at, @analyzed, @is_candidature, @candidature_id)
+  VALUES ($user_id, $email_message_id, $subject, $from_address, $received_at, $analyzed, $is_candidature, $candidature_id)
 `);
 
 module.exports = {
   upsertUser, getUserById, getUserByGoogleId, updateUserTokens,
-  insertCandidature, getCandidaturesByUser, getCandidaturesByStatut,
+  insertCandidature, findDuplicate, getCandidaturesByUser, getCandidaturesByStatut,
   getCandidatureById, updateStatut, markRelanceEnvoyee, markReponseRecue,
-  updateRelanceMessage, updateNotes, getCandidaturesNeedingRelance,
-  getStats, getTimeline, logEmail
+  updateRelanceMessage, updateReplyTo, updateNotes, deleteCandidature,
+  getCandidaturesNeedingRelance, getStats, getTimeline, logEmail
 };
