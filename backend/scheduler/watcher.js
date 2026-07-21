@@ -148,7 +148,8 @@ async function startWatcher(user) {
 
   // Initial fetch: scan recent emails
   try {
-    const emails = await fetchEmails(user, 'in:inbox newer_than:30d', 100);
+    const query = 'in:inbox (candidature OR recrutement OR "accusé de réception" OR "bien reçu votre" OR postulé OR candidater OR candidaté OR "votre profil") newer_than:30d';
+    const emails = await fetchEmails(user, query, 100);
     for (const email of emails) {
       await processEmail(user, email);
     }
@@ -175,7 +176,8 @@ async function startWatcher(user) {
           await processEmail(freshUser, email);
         }
       } else {
-        const emails = await fetchEmails(freshUser, 'in:inbox newer_than:1d', 20);
+        const query = 'in:inbox (candidature OR recrutement OR "accusé de réception" OR "bien reçu votre" OR postulé OR candidater OR candidaté OR "votre profil") newer_than:1d';
+        const emails = await fetchEmails(freshUser, query, 50);
         for (const email of emails) {
           await processEmail(freshUser, email);
         }
