@@ -51,14 +51,35 @@ const BLOCKED_BODY_PATTERNS = [
  * Pre-filter: Return true if the email should be REJECTED immediately (before AI)
  */
 function isDefinitelyNotCandidature(email) {
+  // 1. Whitelist check: Must contain at least one recruitment keyword
+  const whitelistKeywords = [
+    "candidature", 
+    "accusé de réception", 
+    "recrutement", 
+    "process de recrutement", 
+    "votre profil",
+    "postulé",
+    "candidaté",
+    "candidater",
+    "bien reçu votre"
+  ];
+  
+  const subjectSnippet = `${email.subject || ''} ${email.snippet || ''}`.toLowerCase();
+  const matchesWhitelist = whitelistKeywords.some(kw => subjectSnippet.includes(kw));
+  
+  if (!matchesWhitelist) {
+    console.log(`🚫 Pre-filter: Whitelist reject (no recruitment keywords) — ${email.subject}`);
+    return true; // Reject immediately
+  }
+
+  // 2. Blacklist check: Reject if it matches known job alerts or spammers
   const fromLower = (email.from || '').toLowerCase();
-  const subjectLower = (email.subject || '').toLowerCase();
   const bodyLower = (email.bodyText || email.snippet || '').toLowerCase();
 
   // Block known job alert domains
   for (const domain of BLOCKED_SENDER_DOMAINS) {
     if (fromLower.includes(domain)) {
-      console.log(`🚫 Pre-filter: blocked sender domain (${domain}) — ${email.subject}`);
+      console.log(`🚫 Pre-filter: Blocked sender domain (${domain}) — ${email.subject}`);
       return true;
     }
   }
@@ -66,7 +87,7 @@ function isDefinitelyNotCandidature(email) {
   // Block by subject pattern
   for (const pattern of BLOCKED_SUBJECT_PATTERNS) {
     if (pattern.test(email.subject || '')) {
-      console.log(`🚫 Pre-filter: blocked subject pattern — ${email.subject}`);
+      console.log(`🚫 Pre-filter: Blocked subject pattern — ${email.subject}`);
       return true;
     }
   }
@@ -74,7 +95,7 @@ function isDefinitelyNotCandidature(email) {
   // Block by body pattern
   for (const pattern of BLOCKED_BODY_PATTERNS) {
     if (pattern.test(bodyLower)) {
-      console.log(`🚫 Pre-filter: blocked body pattern — ${email.subject}`);
+      console.log(`🚫 Pre-filter: Blocked body pattern — ${email.subject}`);
       return true;
     }
   }
