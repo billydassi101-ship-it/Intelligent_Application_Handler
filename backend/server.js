@@ -29,6 +29,7 @@ console.error = function(...args) {
   originalError.apply(console, args);
 };
 
+const db = require('./db/database');
 const passport = require('./auth/googleAuth');
 const { sendEmail } = require('./email/gmailClient');
 const { generateRelanceMessage, isNoReplyAddress, extractEmail } = require('./ai/analyzer');
@@ -329,6 +330,17 @@ app.listen(PORT, () => {
   
   // Start daily cron
   startDailyCron();
+
+  // Restore watchers for all existing database users
+  try {
+    const users = db.prepare('SELECT * FROM users').all();
+    console.log(`👁️ Restauration de la surveillance email pour ${users.length} utilisateur(s)...`);
+    users.forEach(user => {
+      startWatcher(user);
+    });
+  } catch (err) {
+    console.error('Erreur lors de la restauration de la surveillance:', err.message);
+  }
 });
 
 module.exports = app;
