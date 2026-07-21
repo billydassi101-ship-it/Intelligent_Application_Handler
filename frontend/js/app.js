@@ -318,11 +318,17 @@ async function loadPage(page) {
     'relance-valider': ['À valider', 'Relances prêtes à envoyer en 1 clic'],
     'relance-a-venir': ['Relance à venir', 'Suivi des délais avant relance'],
     'repondu': ['Répondus', 'Candidatures avec réponse reçue'],
+    'logs': ['Console Logs', 'Historique des logs du serveur'],
   };
 
   const [title, subtitle] = pageTitles[page] || ['', ''];
   $('pageTitle').textContent = title;
   $('pageSubtitle').textContent = subtitle;
+
+  if (page === 'logs') {
+    loadLogsPage();
+    return;
+  }
 
   if (page === 'dashboard') {
     await loadStats();
@@ -646,6 +652,22 @@ async function saveNotes(id) {
   else showToast('Erreur de sauvegarde', 'error');
 }
 
+async function loadLogsPage() {
+  const logsArea = $('logsArea');
+  if (logsArea) logsArea.textContent = 'Chargement des logs...';
+  
+  const data = await api('/api/logs');
+  if (data?.success) {
+    if (logsArea) {
+      logsArea.textContent = data.logs || 'Aucun log enregistré.';
+      logsArea.scrollTop = logsArea.scrollHeight;
+    }
+  } else {
+    if (logsArea) logsArea.textContent = 'Erreur lors du chargement des logs.';
+  }
+}
+
+
 function closeModal() {
   $('detailModal').classList.add('hidden');
 }
@@ -733,5 +755,7 @@ window.navigateTo = navigateTo;
 window.saveReplyTo = saveReplyTo;
 window.deleteCandidatureFromModal = deleteCandidatureFromModal;
 window.deleteCandidatureDirect = deleteCandidatureDirect;
+window.loadLogsPage = loadLogsPage;
+
 
 

@@ -4,6 +4,31 @@ const session = require('express-session');
 const FileStore = require('session-file-store')(session);
 const path = require('path');
 const fs = require('fs');
+
+// ─── LOG FILE REDIRECTION ──────────────────────────────────────────────────
+const logDir = path.join(__dirname, '../logs');
+if (!fs.existsSync(logDir)) {
+  fs.mkdirSync(logDir, { recursive: true });
+}
+const logFile = fs.createWriteStream(path.join(logDir, 'app.log'), { flags: 'a' });
+
+const originalLog = console.log;
+const originalError = console.error;
+
+console.log = function(...args) {
+  const message = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : arg).join(' ');
+  const logLine = `[${new Date().toISOString()}] [INFO] ${message}\n`;
+  logFile.write(logLine);
+  originalLog.apply(console, args);
+};
+
+console.error = function(...args) {
+  const message = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : arg).join(' ');
+  const logLine = `[${new Date().toISOString()}] [ERROR] ${message}\n`;
+  logFile.write(logLine);
+  originalError.apply(console, args);
+};
+
 const passport = require('./auth/googleAuth');
 const { sendEmail } = require('./email/gmailClient');
 const { generateRelanceMessage, isNoReplyAddress, extractEmail } = require('./ai/analyzer');
@@ -237,6 +262,23 @@ app.patch('/api/candidatures/:id/reply-to', requireAuth, (req, res) => {
 app.delete('/api/candidatures/:id', requireAuth, (req, res) => {
   deleteCandidature.run(parseInt(req.params.id), req.user.id);
   res.json({ success: true });
+});
+
+// GET logs
+app.get('/api/logs', requireAuth, (req, res) => {
+  const logFilePath = path.join(__dirname, '../logs/app.log');
+  if (!fs.existsSync(logFilePath)) {
+    return res.json({ success: true, logs: "Aucun log disponible pour le moment." });
+  }
+  
+  try {
+    const logs = fs.readFileSync(logFilePath, 'utf8');
+    const lines = logs.split('\n');
+    const lastLines = lines.slice(-200).join('\n');
+    res.json({ success: true, logs: lastLines });
+  } catch (err) {
+    res.status(500).json({ error: "Impossible de lire les logs : " + err.message });
+  }
 });
 
 // PATCH mark as replied
