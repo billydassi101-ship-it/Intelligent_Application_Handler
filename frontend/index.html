@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard — Intelligent Application Handler</title>
+  <meta name="description" content="Tableau de bord de gestion de vos candidatures en alternance avec suivi intelligent et relances automatiques.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body class="dashboard-page">
+
+  <!-- Gradient orbs background -->
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+
+  <!-- ═══════════════════════ SIDEBAR ═══════════════════════ -->
+  <aside class="sidebar glass" id="sidebar">
+    <div class="sidebar-brand">
+      <div class="brand-icon-sm">
+        <svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect width="32" height="32" rx="10" fill="url(#sbGrad)"/>
+          <path d="M8 10h16M8 16h10M8 22h13" stroke="white" stroke-width="2" stroke-linecap="round"/>
+          <circle cx="24" cy="20" r="5" fill="#10b981" stroke="#0a0f1e" stroke-width="1.5"/>
+          <path d="M22 20l1.5 1.5L26 18.5" stroke="white" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+          <defs>
+            <linearGradient id="sbGrad" x1="0" y1="0" x2="32" y2="32" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#7c3aed"/><stop offset="1" stop-color="#4f46e5"/>
+            </linearGradient>
+          </defs>
+        </svg>
+      </div>
+      <span class="brand-name">IAH</span>
+    </div>
+
+    <nav class="sidebar-nav">
+      <a href="#" class="nav-item active" data-page="dashboard" id="nav-dashboard">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        <span>Dashboard</span>
+      </a>
+      <a href="#" class="nav-item" data-page="relance-envoyee" id="nav-envoyee">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2L15 22L11 13L2 9L22 2Z"/></svg>
+        <span>Relances envoyées</span>
+        <span class="nav-badge" id="badge-envoyee">0</span>
+      </a>
+      <a href="#" class="nav-item" data-page="relance-valider" id="nav-valider">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+        <span>À valider</span>
+        <span class="nav-badge urgent" id="badge-valider">0</span>
+      </a>
+      <a href="#" class="nav-item" data-page="relance-a-venir" id="nav-avenir">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10M12 20V4M6 20v-6"/></svg>
+        <span>Relance à venir</span>
+        <span class="nav-badge" id="badge-avenir">0</span>
+      </a>
+      <a href="#" class="nav-item" data-page="repondu" id="nav-repondu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17L4 12"/></svg>
+        <span>Répondus</span>
+        <span class="nav-badge success" id="badge-repondu">0</span>
+      </a>
+    </nav>
+
+    <!-- User profile -->
+    <div class="sidebar-user">
+      <img id="userAvatar" src="" alt="Avatar" class="user-avatar">
+      <div class="user-info">
+        <span id="userName" class="user-name">...</span>
+        <span id="userEmail" class="user-email">...</span>
+      </div>
+      <button class="logout-btn" id="logoutBtn" title="Se déconnecter">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16,17 21,12 16,7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      </button>
+    </div>
+
+    <!-- Watcher status -->
+    <div class="watcher-status" id="watcherStatus">
+      <span class="status-dot active"></span>
+      <span class="status-text">Surveillance active</span>
+    </div>
+  </aside>
+
+  <!-- ═══════════════════════ MAIN CONTENT ═══════════════════════ -->
+  <main class="main-content">
+
+    <!-- Top bar -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <button class="menu-toggle" id="menuToggle">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+        <div class="page-title">
+          <h2 id="pageTitle">Dashboard</h2>
+          <span id="pageSubtitle" class="page-subtitle">Vue d'ensemble de vos candidatures</span>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <div class="live-indicator">
+          <span class="pulse-dot"></span>
+          <span>Live</span>
+        </div>
+        <div id="lastUpdate" class="last-update">—</div>
+      </div>
+    </header>
+
+    <!-- ─── PAGE: DASHBOARD ─── -->
+    <section id="page-dashboard" class="page active">
+
+      <!-- Stats cards -->
+      <div class="stats-grid">
+        <div class="stat-card glass" id="stat-total">
+          <div class="stat-icon" style="background: linear-gradient(135deg, #7c3aed, #4f46e5)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+          </div>
+          <div class="stat-info">
+            <span class="stat-value" id="sv-total">—</span>
+            <span class="stat-label">Total candidatures</span>
+          </div>
+        </div>
+        <div class="stat-card glass" id="stat-attente">
+          <div class="stat-icon" style="background: linear-gradient(135deg, #f59e0b, #d97706)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+          </div>
+          <div class="stat-info">
+            <span class="stat-value" id="sv-attente">—</span>
+            <span class="stat-label">En attente</span>
+          </div>
+        </div>
+        <div class="stat-card glass urgent-card" id="stat-valider">
+          <div class="stat-icon" style="background: linear-gradient(135deg, #ef4444, #dc2626)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          </div>
+          <div class="stat-info">
+            <span class="stat-value" id="sv-valider">—</span>
+            <span class="stat-label">Relances à valider</span>
+          </div>
+        </div>
+        <div class="stat-card glass" id="stat-envoyee">
+          <div class="stat-icon" style="background: linear-gradient(135deg, #3b82f6, #2563eb)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><path d="M22 2L15 22L11 13L2 9L22 2Z"/></svg>
+          </div>
+          <div class="stat-info">
+            <span class="stat-value" id="sv-envoyee">—</span>
+            <span class="stat-label">Relances envoyées</span>
+          </div>
+        </div>
+        <div class="stat-card glass" id="stat-repondu">
+          <div class="stat-icon" style="background: linear-gradient(135deg, #10b981, #059669)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17L4 12"/></svg>
+          </div>
+          <div class="stat-info">
+            <span class="stat-value" id="sv-repondu">—</span>
+            <span class="stat-label">Réponses reçues</span>
+          </div>
+        </div>
+        <div class="stat-card glass" id="stat-taux">
+          <div class="stat-icon" style="background: linear-gradient(135deg, #8b5cf6, #7c3aed)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+          </div>
+          <div class="stat-info">
+            <span class="stat-value" id="sv-taux">—%</span>
+            <span class="stat-label">Taux de réponse</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Charts row -->
+      <div class="charts-row">
+        <div class="chart-card glass">
+          <div class="chart-header">
+            <h3>Candidatures par mois</h3>
+          </div>
+          <div class="chart-body">
+            <canvas id="timelineChart"></canvas>
+          </div>
+        </div>
+        <div class="chart-card glass chart-donut">
+          <div class="chart-header">
+            <h3>Répartition des statuts</h3>
+          </div>
+          <div class="chart-body">
+            <canvas id="statusChart"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent activity / live feed -->
+      <div class="recent-card glass">
+        <div class="recent-header">
+          <h3>Activité récente</h3>
+          <span class="live-badge">🔴 Live</span>
+        </div>
+        <div id="recentFeed" class="recent-feed">
+          <div class="feed-empty">
+            <span>📭</span>
+            <p>En attente de nouveaux emails...</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─── PAGE: RELANCES ENVOYÉES ─── -->
+    <section id="page-relance-envoyee" class="page">
+      <div class="candidatures-list" id="list-envoyee"></div>
+    </section>
+
+    <!-- ─── PAGE: À VALIDER ─── -->
+    <section id="page-relance-valider" class="page">
+      <div class="candidatures-list" id="list-valider"></div>
+    </section>
+
+    <!-- ─── PAGE: RELANCE À VENIR ─── -->
+    <section id="page-relance-a-venir" class="page">
+      <div class="candidatures-list" id="list-avenir"></div>
+    </section>
+
+    <!-- ─── PAGE: RÉPONDUS ─── -->
+    <section id="page-repondu" class="page">
+      <div class="candidatures-list" id="list-repondu"></div>
+    </section>
+
+  </main>
+
+  <!-- ═══════════════════════ MODAL DÉTAIL ═══════════════════════ -->
+  <div class="modal-overlay hidden" id="detailModal">
+    <div class="modal glass" id="detailContent">
+      <button class="modal-close" id="modalClose">✕</button>
+      <div id="modalBody"></div>
+    </div>
+  </div>
+
+  <!-- ═══════════════════════ TOAST NOTIFICATION ═══════════════════════ -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script src="js/app.js"></script>
+</body>
+</html>
