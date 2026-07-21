@@ -144,9 +144,9 @@ async function analyzeEmail(email) {
   const prompt = `Tu es un expert en classification d'emails de recrutement français. Ta mission est TRÈS STRICTE.
 
 Un "accusé de réception de candidature" valide doit impérativement :
-✅ Confirmer que le destinataire a DÉJÀ soumis une candidature à une offre d'emploi spécifique
+✅ Confirmer ou faire suite à une candidature que le destinataire a DÉJÀ soumise à une offre d'emploi (spécifique ou spontanée)
 ✅ Venir d'un employeur, d'un cabinet de recrutement, ou d'un ATS (système de suivi de candidatures)
-✅ Contenir des formulations comme : "Nous avons bien reçu votre candidature", "Votre candidature a été enregistrée", "Nous accusons réception de votre dossier"
+✅ Contenir des formulations indiquant que la candidature a été reçue ou qu'elle est en cours d'étude, ou remercier pour l'intérêt (ex: "Nous vous remercions de l'intérêt...", "Nous avons bien reçu votre candidature", "Sans nouvelles de notre part...", "Votre candidature a été enregistrée", "Votre candidature est en cours d'examen")
 
 ❌ CE N'EST PAS un accusé de réception si :
 - C'est une alerte emploi ("3 nouveaux emplois", "Job Alert", "nouveaux emplois", "Votre parcours pourrait correspondre", "jobs matching your search")
@@ -165,7 +165,7 @@ Réponds UNIQUEMENT avec un JSON valide, sans markdown, sans explication :
 {
   "est_accuse_reception": true/false,
   "entreprise": "nom exact de l'entreprise recrutrice (pas Indeed/LinkedIn) ou null",
-  "poste": "intitulé exact du poste ou null",
+  "poste": "intitulé exact du poste ou null (met 'Poste non précisé' si aucun titre n'est mentionné mais que c'est bien une candidature)",
   "type_contrat": "alternance" | "stage" | "cdi" | "cdd" | "autre" | null,
   "cv_mentionne": true/false,
   "confiance": 0.0 à 1.0,
