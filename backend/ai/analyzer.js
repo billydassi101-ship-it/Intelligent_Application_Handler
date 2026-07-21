@@ -64,8 +64,8 @@ function isDefinitelyNotCandidature(email) {
     "bien reçu votre"
   ];
   
-  const subjectSnippet = `${email.subject || ''} ${email.snippet || ''}`.toLowerCase();
-  const matchesWhitelist = whitelistKeywords.some(kw => subjectSnippet.includes(kw));
+  const fullText = `${email.subject || ''} ${email.snippet || ''} ${email.bodyText || ''}`.toLowerCase();
+  const matchesWhitelist = whitelistKeywords.some(kw => fullText.includes(kw));
   
   if (!matchesWhitelist) {
     console.log(`🚫 Pre-filter: Whitelist reject (no recruitment keywords) — ${email.subject}`);
