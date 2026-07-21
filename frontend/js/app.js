@@ -535,29 +535,63 @@ async function saveReplyTo(id) {
   }
 }
 
-async function deleteCandidatureFromModal(id) {
-  if (!confirm("Voulez-vous vraiment supprimer cette candidature ? Cette action est irréversible et supprimera tout l'historique lié.")) return;
-  const data = await api(`/api/candidatures/${id}`, { method: 'DELETE' });
-  if (data?.success) {
-    showToast('🗑️ Candidature supprimée avec succès', 'success');
-    closeModal();
-    loadPage(state.currentPage);
-    loadStats();
-  } else {
-    showToast('Erreur lors de la suppression', 'error');
-  }
+function showConfirm(title, message, onConfirm) {
+  $('confirmTitle').textContent = title;
+  $('confirmMessage').textContent = message;
+  $('confirmModal').classList.remove('hidden');
+
+  const okBtn = $('confirmOkBtn');
+  const cancelBtn = $('confirmCancelBtn');
+
+  // Clone to remove previous event listeners
+  const newOkBtn = okBtn.cloneNode(true);
+  const newCancelBtn = cancelBtn.cloneNode(true);
+  okBtn.parentNode.replaceChild(newOkBtn, okBtn);
+  cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
+
+  newOkBtn.addEventListener('click', () => {
+    $('confirmModal').classList.add('hidden');
+    onConfirm();
+  });
+
+  newCancelBtn.addEventListener('click', () => {
+    $('confirmModal').classList.add('hidden');
+  });
 }
 
-async function deleteCandidatureDirect(id) {
-  if (!confirm("Voulez-vous vraiment supprimer cette candidature ? Cette action est irréversible.")) return;
-  const data = await api(`/api/candidatures/${id}`, { method: 'DELETE' });
-  if (data?.success) {
-    showToast('🗑️ Candidature supprimée avec succès', 'success');
-    loadPage(state.currentPage);
-    loadStats();
-  } else {
-    showToast('Erreur lors de la suppression', 'error');
-  }
+function deleteCandidatureFromModal(id) {
+  showConfirm(
+    "Supprimer la candidature ?",
+    "Voulez-vous vraiment supprimer cette candidature ? Cette action est irréversible et supprimera tout l'historique lié.",
+    async () => {
+      const data = await api(`/api/candidatures/${id}`, { method: 'DELETE' });
+      if (data?.success) {
+        showToast('🗑️ Candidature supprimée avec succès', 'success');
+        closeModal();
+        loadPage(state.currentPage);
+        loadStats();
+      } else {
+        showToast('Erreur lors de la suppression', 'error');
+      }
+    }
+  );
+}
+
+function deleteCandidatureDirect(id) {
+  showConfirm(
+    "Supprimer la candidature ?",
+    "Voulez-vous vraiment supprimer cette candidature ? Cette action est irréversible.",
+    async () => {
+      const data = await api(`/api/candidatures/${id}`, { method: 'DELETE' });
+      if (data?.success) {
+        showToast('🗑️ Candidature supprimée avec succès', 'success');
+        loadPage(state.currentPage);
+        loadStats();
+      } else {
+        showToast('Erreur lors de la suppression', 'error');
+      }
+    }
+  );
 }
 
 async function sendRelanceFromModal(id) {

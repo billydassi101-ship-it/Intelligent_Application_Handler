@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=1.0.1">
+  <link rel="stylesheet" href="css/style.css?v=1.0.2">
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 <body class="dashboard-page">
@@ -231,9 +231,21 @@
     </div>
   </div>
 
+  <!-- ═══════════════════════ MODAL CONFIRMATION ═══════════════════════ -->
+  <div class="modal-overlay hidden" id="confirmModal" style="z-index: 300;">
+    <div class="modal glass" style="max-width: 400px; text-align: center; padding: 28px;">
+      <h3 id="confirmTitle" style="font-size: 18px; margin-bottom: 12px; font-weight: 700;">Confirmation</h3>
+      <p id="confirmMessage" style="font-size: 14px; color: var(--text-secondary); margin-bottom: 24px; line-height: 1.5;">Voulez-vous vraiment effectuer cette action ?</p>
+      <div style="display: flex; gap: 12px; justify-content: center;">
+        <button class="btn-ghost" id="confirmCancelBtn" style="padding: 10px 20px;">Annuler</button>
+        <button class="btn-primary" id="confirmOkBtn" style="padding: 10px 20px; background: linear-gradient(135deg, var(--color-danger), #dc2626); box-shadow: 0 4px 16px rgba(239, 68, 68, 0.3);">Confirmer</button>
+      </div>
+    </div>
+  </div>
+
   <!-- ═══════════════════════ TOAST NOTIFICATION ═══════════════════════ -->
   <div class="toast-container" id="toastContainer"></div>
 
-  <script src="js/app.js?v=1.0.1"></script>
+  <script src="js/app.js?v=1.0.2"></script>
 </body>
 </html>
